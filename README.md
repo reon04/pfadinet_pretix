@@ -1,4 +1,6 @@
 # pfadinet_pretix
+[![Publish Docker image as latest](https://github.com/reon04/pfadinet_pretix/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/reon04/pfadinet_pretix/actions/workflows/docker-publish.yml)
+
 This Docker image extends the standard [pretix](https://github.com/pretix/pretix)-standalone version with plugins used for the pfadinet pretix.
 
 ### Currently included plugins
