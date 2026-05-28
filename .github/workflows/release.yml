@@ -1,4 +1,4 @@
-name: Release and Build Docker
+name: Publish Release and Build Docker
 on:
   workflow_run:
     workflows: [Merge Dependabot Pullrequest]
@@ -11,26 +11,26 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.extract_tag.outputs.tag }}
+      version: ${{ steps.extract_version.outputs.version }}
     permissions:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Extract base image tag
-        id: extract_tag
+      - name: Extract base image version
+        id: extract_version
         run: |
-          BASE_TAG=$(grep -i '^FROM ' Dockerfile | head -1 | cut -d':' -f2-)
-          echo "tag=$BASE_TAG" >> $GITHUB_OUTPUT
+          BASE_IMAGE_VERSION=$(grep -i '^FROM ' Dockerfile | head -1 | cut -d ':' -f2- | cut -d '-' -f1)
+          echo "version=$BASE_IMAGE_VERSION" >> $GITHUB_OUTPUT
       - name: Set up Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       - name: Create GitHub Release
         run: |
-          TAG_NAME=${{ steps.extract_tag.outputs.tag }}
+          TAG_NAME=${{ steps.extract_version.outputs.version }}
           if git show-ref --tags --verify --quiet "refs/tags/${TAG_NAME}"; then
             git tag -d "$TAG_NAME"
             git push origin -d "$TAG_NAME"
@@ -44,23 +44,27 @@ jobs:
   docker:
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3.3.0
+        uses: docker/setup-buildx-action@v4
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
           tags: |
-            ${{ github.repository }}:${{ needs.release.outputs.tag }}
-            ${{ github.repository }}:latest
-          cache-from: type=registry,ref=${{ github.repository }}:buildcache
-          cache-to: type=registry,ref=${{ github.repository }}:buildcache,mode=max
+            ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
