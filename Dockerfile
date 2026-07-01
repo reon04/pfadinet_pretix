@@ -1,4 +1,4 @@
-FROM pretix/standalone:2026.5.2
+FROM pretix/standalone:2026.6.0
 
 USER root
 RUN cd /pretix/src
